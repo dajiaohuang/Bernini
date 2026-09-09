@@ -266,16 +266,19 @@ def main():
         args.vlm_config, padding_side="right", trust_remote_code=True)
     print('finish creating vit processor')
 
-    vae_model = AutoencoderKLWan.from_pretrained(
-        args.vae_config, torch_dtype=torch.float32)
-    vae_model.eval()
-    vae_model = vae_model.cuda()
-    vae_transform = VAEImageTransform(
-        max_image_size=args.vae_max_image_size,
-        min_image_size=args.vae_min_image_size,
-        image_stride=8*2,
-        max_pixels=args.vae_max_pixels,
-    )
+    vae_model = None
+    vae_transform = None
+    if not args.only_vit:
+        vae_model = AutoencoderKLWan.from_pretrained(
+            args.vae_config, torch_dtype=torch.float32)
+        vae_model.eval()
+        vae_model = vae_model.cuda()
+        vae_transform = VAEImageTransform(
+            max_image_size=args.vae_max_image_size,
+            min_image_size=args.vae_min_image_size,
+            image_stride=8*2,
+            max_pixels=args.vae_max_pixels,
+        )
     print("Models loaded.")
 
     if os.path.isdir(args.input_dir):
