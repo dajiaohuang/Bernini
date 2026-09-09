@@ -1686,7 +1686,8 @@ class Qwen2_5_VLModel(Qwen2_5_VLPreTrainedModel):
             all_hidden_states += (hidden_states,)
 
         hidden_states = self.get_sp_hidden_states(hidden_states, sp_padlen)
-        all_hidden_states = tuple(self.get_sp_hidden_states(h, sp_padlen) for h in all_hidden_states)
+        if all_hidden_states is not None:
+            all_hidden_states = tuple(self.get_sp_hidden_states(h, sp_padlen) for h in all_hidden_states)
 
         next_cache = next_decoder_cache if use_cache else None
 
