@@ -220,9 +220,15 @@ class BerniniRendererPipeline:
         high_noise_ckpt: str = None,
         low_noise_ckpt: str = None,
         device="cuda",
-        load_ckpt_weights: bool = True,
+        load_ckpt_weights: bool = None,
         **config_overrides,
     ) -> "BerniniRendererPipeline":
+        if load_ckpt_weights is None:
+            if (high_noise_ckpt is None) != (low_noise_ckpt is None):
+                raise ValueError(
+                    "high_noise_ckpt and low_noise_ckpt must be provided together"
+                )
+            load_ckpt_weights = high_noise_ckpt is not None
         config = BerniniRendererConfig.from_pretrained(config_dir, **config_overrides)
         config.wan22_base = _prefer_local_dir(
             config.wan22_base, config_dir, "tokenizer", "text_encoder", "vae"
