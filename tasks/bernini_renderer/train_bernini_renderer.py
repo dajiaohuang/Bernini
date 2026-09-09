@@ -531,6 +531,20 @@ def main():
         torch.set_rng_state(state["extra_state"]["torch_rng_state"])
         dist.barrier()
 
+    wandb_module = None
+    wandb_run = None
+    if args.train.global_rank == 0 and args.train.wandb.enable:
+        import wandb
+
+        wandb_module = wandb
+        wandb_run = wandb.init(
+            project=args.train.wandb.project,
+            name=args.train.wandb.name,
+            id=args.train.wandb.id,
+            resume="allow" if args.train.wandb.id else None,
+            config=asdict(args),
+        )
+
     model_fwd_context, model_bwd_context = build_activation_offloading_context(
         args.train.accelerator.offload_config.enable_activation,
         args.train.gradient_checkpointing.enable,
@@ -616,20 +630,10 @@ def main():
             pbar.set_postfix_str(postfix_str, refresh=False)
             pbar.update()
 
-            if args.train.global_rank == 0 and args.train.wandb.enable:
-                import wandb
-
-                if global_step == 1:
-                    wandb.init(
-                        project=args.train.wandb.project,
-                        name=args.train.wandb.name,
-                        id=args.train.wandb.id,
-                        resume="allow" if args.train.wandb.id else None,
-                        config=asdict(args),
-                    )
+            if wandb_run is not None:
                 train_metrics.update({f"training/{k}": v for k, v in log_losses.items()})
                 train_metrics.update({"training/loss": total_loss, "training/grad_norm": grad_norm, "training/lr": max(lr_scheduler.get_last_lr())})
-                wandb.log(train_metrics, step=global_step)
+                wandb_run.log(train_metrics, step=global_step)
 
             if args.train.checkpoint.save_steps and global_step % args.train.checkpoint.save_steps == 0:
                 save_path = os.path.join(args.train.checkpoint.save_path, f"global_step_{global_step}")
@@ -649,10 +653,8 @@ def main():
         pbar.close()
         start_step = 0
     synchronize()
-    if args.train.global_rank == 0 and args.train.wandb.enable:
-        import wandb
-
-        wandb.finish()
+    if wandb_module is not None:
+        wandb_module.finish()
 
 
 if __name__ == "__main__":
