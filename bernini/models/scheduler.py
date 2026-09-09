@@ -75,7 +75,7 @@ class FlowMatchScheduler:
 
     def step(self, model_output, timestep, sample, to_final: bool = False, **kwargs):
         if isinstance(timestep, torch.Tensor):
-            timestep = timestep.cuda(non_blocking=True)
+            timestep = timestep.to(self.timesteps.device, non_blocking=True)
         timestep_id = torch.argmin((self.timesteps - timestep).abs())
         sigma = self.sigmas[timestep_id]
         if to_final or timestep_id + 1 >= len(self.timesteps):
