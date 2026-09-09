@@ -56,6 +56,7 @@ import torch.nn.functional as F
 import torch.distributed as dist
 from torch.nn import CrossEntropyLoss
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from packaging import version
 from transformers.activations import ACT2FN
 from transformers.cache_utils import Cache, DynamicCache, SlidingWindowCache, StaticCache
 from transformers.generation import GenerationMixin
@@ -110,6 +111,16 @@ except ModuleNotFoundError:
 
 def get_flex_qkv_pad_length():
     return int(os.environ.get("FLEX_QKV_PAD_LENGTH", "128"))
+
+
+def _flex_attention_compile_kwargs(torch_version):
+    """Return the torch.compile options supported by a parsed torch version."""
+    if torch_version <= version.parse("2.5.1"):
+        return {"dynamic": False}
+    if torch_version.base_version == "2.6.0":
+        return {"dynamic": False, "mode": "max-autotune-no-cudagraphs"}
+    return {}
+
 
 fa2_installed = importlib.util.find_spec('flash_attn') is not None
 fa3_hopper_installed = importlib.util.find_spec('flash_attn_interface') is not None
@@ -1104,15 +1115,13 @@ class Qwen2_5_VLFlashAttention2(Qwen2_5_VLAttention):
         use_flex_attn = attention_mask is not None and isinstance(
             attention_mask, torch.nn.attention.flex_attention.BlockMask
         )
+        # Flash/Flex attention does not expose attention weights in this path.
+        attn_weights = None
         if use_flex_attn and self.flex_attention is None:
-            if is_torch_less_or_equal("2.5.1", accept_dev=True):
-                self.flex_attention = torch.compile(flex_attention, dynamic=False)
-            elif version.parse(get_torch_version()).base_version == "2.6.0":
-                self.flex_attention = torch.compile(
-                    flex_attention, dynamic=False, mode="max-autotune-no-cudagraphs"
-                )
-            else:
-                self.flex_attention = torch.compile(flex_attention)
+            torch_version = version.parse(torch.__version__.split("+", 1)[0])
+            self.flex_attention = torch.compile(
+                flex_attention, **_flex_attention_compile_kwargs(torch_version)
+            )
 
         bsz, q_len, _ = hidden_states.size()
 
