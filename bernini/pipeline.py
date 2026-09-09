@@ -812,11 +812,12 @@ class BerniniPipeline:
                     mask_to_pred = torch.logical_xor(mask.bool(), mask_next)
                 mask = mask_next
 
-                if mask_to_pred.nonzero(as_tuple=True)[0].sum() == 0:
-                    continue 
-                cond_pred_vit_embed = pred_vit_embed_mllm[:, mask_to_pred.nonzero(as_tuple=True)[0]]
-                uncond_pred_vit_embed = uncond_pred_vit_embed_mllm[:, mask_to_pred.nonzero(as_tuple=True)[0]]
-                imgcond_pred_vit_embed = imgcond_pred_vit_embed_mllm[:, mask_to_pred.nonzero(as_tuple=True)[0]]
+                pred_indices = mask_to_pred.nonzero(as_tuple=True)[0]
+                if pred_indices.numel() == 0:
+                    continue
+                cond_pred_vit_embed = pred_vit_embed_mllm[:, pred_indices]
+                uncond_pred_vit_embed = uncond_pred_vit_embed_mllm[:, pred_indices]
+                imgcond_pred_vit_embed = imgcond_pred_vit_embed_mllm[:, pred_indices]
                 cur_pred_vit_embed = self.sample_vit_decoder(
                     vit_embed=cond_pred_vit_embed,
                     uncond_vit_embed=uncond_pred_vit_embed,
@@ -828,7 +829,7 @@ class BerniniPipeline:
                 )
 
                 all_target_vit_embed = input_embeds[:, visual_output_token_mask, :]
-                all_target_vit_embed[:, mask_to_pred.nonzero(as_tuple=True)[0]] = cur_pred_vit_embed
+                all_target_vit_embed[:, pred_indices] = cur_pred_vit_embed
                 input_embeds[:, visual_output_token_mask] = all_target_vit_embed
                 uncond_input_embeds[:, uncond_visual_output_token_mask] = all_target_vit_embed
                 imgcond_input_embeds[:, imgcond_visual_output_token_mask] = all_target_vit_embed
