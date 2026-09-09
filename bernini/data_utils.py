@@ -253,9 +253,10 @@ def generate_unified_inputs(
         for i, input_image_path in enumerate(input_image_paths):
             if input_image_path is None:
                 continue
-            if os.path.exists(input_image_path):
-                with Image.open(input_image_path) as src_img:
-                    w, h = src_img.size
+            if not os.path.isfile(input_image_path):
+                raise FileNotFoundError(f"Input image not found: {input_image_path}")
+            with Image.open(input_image_path) as src_img:
+                w, h = src_img.size
 
             idx = i + len(input_video_paths)
             inputs_structure.append({
