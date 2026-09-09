@@ -97,14 +97,30 @@ def load_transformer_state_dict(ckpt_path: str, prefixes: list):
     raise ValueError(f"no weights matching prefixes {prefixes} found in {ckpt_path}")
 
 
+def _validate_state_dict_overlap(state_dict: dict, target_state_dict: dict, checkpoint_name: str) -> int:
+    """Require at least one target tensor before doing a non-strict load."""
+    overlap = set(state_dict).intersection(target_state_dict)
+    if not overlap:
+        raise ValueError(
+            f"{checkpoint_name} checkpoint has no keys matching its target transformer"
+        )
+    return len(overlap)
+
+
 def load_weights(model, high_noise_ckpt: str, low_noise_ckpt: str):
     """Load the high-noise and low-noise transformer weights into a BerniniRendererModel."""
     high, prefix = load_transformer_state_dict(high_noise_ckpt, HIGH_NOISE_PREFIXES)
+    high_overlap = _validate_state_dict_overlap(
+        high, model.diff_dec.transformer.state_dict(), "high-noise"
+    )
     miss, unexpected = model.diff_dec.transformer.load_state_dict(high, strict=False, assign=False)
-    logger.info("high-noise: %d tensors via prefix '%s', missing=%d unexpected=%d",
-                len(high), prefix, len(miss), len(unexpected))
+    logger.info("high-noise: %d tensors via prefix '%s', overlap=%d, missing=%d unexpected=%d",
+                len(high), prefix, high_overlap, len(miss), len(unexpected))
 
     low, prefix = load_transformer_state_dict(low_noise_ckpt, LOW_NOISE_PREFIXES)
+    low_overlap = _validate_state_dict_overlap(
+        low, model.diff_dec.transformer_2.state_dict(), "low-noise"
+    )
     miss, unexpected = model.diff_dec.transformer_2.load_state_dict(low, strict=False, assign=False)
-    logger.info("low-noise: %d tensors via prefix '%s', missing=%d unexpected=%d",
-                len(low), prefix, len(miss), len(unexpected))
+    logger.info("low-noise: %d tensors via prefix '%s', overlap=%d, missing=%d unexpected=%d",
+                len(low), prefix, low_overlap, len(miss), len(unexpected))
