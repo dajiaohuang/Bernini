@@ -375,7 +375,7 @@ class BerniniRendererPipeline:
         torch.cuda.empty_cache()
 
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-        save_output(output, output_path, fps=fps)
+        output_path = save_output(output, output_path, fps=fps)
         logger.info("saved -> %s  (%d frames, %dx%d)", output_path, output.shape[0], h, w)
         return output_path
 
@@ -1176,6 +1176,6 @@ class BerniniPipeline:
         torch.cuda.empty_cache()
 
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-        save_output(output, output_path, fps=vae_fps)
+        output_path = save_output(output, output_path, fps=vae_fps)
         logger.info("saved -> %s  (%d frames, %dx%d)", output_path, output.shape[0], height, width)
         return output_path

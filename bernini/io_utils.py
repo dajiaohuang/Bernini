@@ -14,9 +14,28 @@
 
 """Write generated frames to disk as H.264 mp4 (or png for a single frame)."""
 
+import os
+
 import imageio
 import numpy as np
 from PIL import Image
+
+
+IMAGE_EXTENSIONS = {".bmp", ".gif", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
+VIDEO_EXTENSIONS = {".avi", ".m4v", ".mkv", ".mov", ".mp4", ".webm"}
+
+
+def resolve_output_path(default_path, task_output=None, task_index=0, task_count=1):
+    """Choose a task output and avoid default-path collisions in a batch."""
+    output_path = task_output or default_path
+    if task_count > 1 and not task_output:
+        root, extension = os.path.splitext(output_path)
+        output_path = f"{root}_{task_index:04d}{extension}"
+    return output_path
+
+
+def _path_with_extension(path, extension):
+    return os.path.splitext(path)[0] + extension
 
 
 def _imageio_mimwrite_h264(frames_uint8, save_path, fps=16, quality=10, crf=8):
@@ -56,7 +75,11 @@ def export_to_video(video_frames, output_video_path, fps=16, quality=10, crf=8):
 def save_output(output: np.ndarray, save_path: str, fps: int = 16):
     """Save a decoded clip `[T, H, W, C]` in [0, 1] as mp4, or png if T == 1."""
     if output.shape[0] == 1:
+        if os.path.splitext(save_path)[1].lower() not in IMAGE_EXTENSIONS:
+            save_path = _path_with_extension(save_path, ".png")
         imageio.imwrite(save_path, (np.clip(output[0], 0.0, 1.0) * 255).astype(np.uint8))
     else:
+        if os.path.splitext(save_path)[1].lower() not in VIDEO_EXTENSIONS:
+            save_path = _path_with_extension(save_path, ".mp4")
         export_to_video(output, save_path, fps=fps)
     return save_path

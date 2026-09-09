@@ -38,6 +38,7 @@ from bernini.cli import (
     resolve_system_prompt,
     setup_logging,
 )
+from bernini.io_utils import resolve_output_path
 from bernini.pipeline import BerniniPipeline
 
 
@@ -59,7 +60,9 @@ def main():
         rewriter = PromptEnhancer(model=args.pe_model)
 
     common = generation_kwargs(args)
-    for task in load_tasks(args):
+    tasks = load_tasks(args)
+    for task_index, task in enumerate(tasks):
+        output_path = resolve_output_path(args.output, task.get("output"), task_index, len(tasks))
         prompt = task["prompt"]
         if rewriter is not None:
             prompt = rewriter(
@@ -78,7 +81,7 @@ def main():
                 video=task.get("video"),
                 image=task.get("image"),
                 images=task.get("images"),
-                output_path=task.get("output", args.output),
+                output_path=output_path,
                 system_prompt=resolve_system_prompt(task, args),
                 **common,
             )
@@ -88,7 +91,7 @@ def main():
                 video=task.get("video"),
                 image=task.get("image"),
                 images=task.get("images"),
-                output_path=task.get("output", args.output),
+                output_path=output_path,
                 system_prompt=resolve_system_prompt(task, args),
                 **common,
             )

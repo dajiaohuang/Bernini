@@ -44,6 +44,7 @@ from bernini.cli import (
     resolve_system_prompt,
     setup_logging,
 )
+from bernini.io_utils import resolve_output_path
 from bernini.parallel import init_parallel_state
 from bernini.pipeline import BerniniPipeline
 
@@ -97,10 +98,15 @@ def main():
         rewriter = PromptEnhancer(model=args.pe_model)
 
     tasks = load_tasks(args)
-    my_tasks = tasks[ps.dp_rank :: ps.dp_size]  # data-parallel split across Ulysses groups
+    my_tasks = [
+        (task_index, task)
+        for task_index, task in enumerate(tasks)
+        if task_index % ps.dp_size == ps.dp_rank
+    ]
     common = generation_kwargs(args)
 
-    for task in my_tasks:
+    for task_index, task in my_tasks:
+        output_path = resolve_output_path(args.output, task.get("output"), task_index, len(tasks))
         prompt = rewrite_prompt(rewriter, task, args.task_type, ps)
         task_name = task.get("task_type", args.task_type)
         # BerniniPipeline takes task_name as first arg, BerniniRendererPipeline takes prompt
@@ -111,7 +117,7 @@ def main():
                 video=task.get("video"),
                 image=task.get("image"),
                 images=task.get("images"),
-                output_path=task.get("output", args.output),
+                output_path=output_path,
                 write_output=(ps.ulysses_rank == 0),
                 system_prompt=resolve_system_prompt(task, args),
                 **common,
@@ -122,7 +128,7 @@ def main():
                 video=task.get("video"),
                 image=task.get("image"),
                 images=task.get("images"),
-                output_path=task.get("output", args.output),
+                output_path=output_path,
                 write_output=(ps.ulysses_rank == 0),
                 system_prompt=resolve_system_prompt(task, args),
                 **common,
